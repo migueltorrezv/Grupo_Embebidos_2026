@@ -1,0 +1,177 @@
+================================================================
+LABORATORIO 4 - GUIA PRACTICA SSH
+================================================================
+
+DATOS DE CONEXION
+-----------------
+Usuario:    rpiuser
+Contrasena: Raspi2026*
+IP (WiFi):  192.168.88.249
+IP (Cable): 10.0.0.1
+Puerto SSH: 22 (por defecto)
+
+
+================================================================
+PASO 1: HABILITAR SSH EN RASPBERRY PI
+================================================================
+1. Abrir terminal en Raspberry Pi
+2. Ejecutar: sudo raspi-config
+3. Seleccionar: 3 Interface Options
+4. Seleccionar: SSH -> Enable
+5. Seleccionar Finish para salir
+
+
+================================================================
+PASO 2: VER IP DEL RASPBERRY PI
+================================================================
+Comando: hostname -I
+
+
+================================================================
+PASO 3: CONECTARSE POR SSH DESDE LA COMPUTADORA
+================================================================
+Comando: ssh rpiuser@192.168.88.249
+
+- Escribir "yes" si pide confirmar la clave
+- Ingresar la contrasena: Raspi2026*
+
+Para desconectarse: exit
+
+
+================================================================
+CONEXIONES FISICAS (GPIO)
+================================================================
+LED 1    -> GPIO 18 -> GND (con resistencia)
+LED 2    -> GPIO 27 -> GND (con resistencia)
+Boton 1  -> GPIO 17 -> GND
+Boton 2  -> GPIO 27 -> GND (ejercicio 3)
+
+
+================================================================
+EJERCICIO 1: Crear carpeta lab4 y archivo buzzer.py
+================================================================
+mkdir lab4
+cd lab4
+touch buzzer.py
+
+
+================================================================
+EJERCICIO 2: LED enciende al presionar boton (buzzer.py)
+================================================================
+nano buzzer.py
+
+--- CODIGO ---
+import RPi.GPIO as GPIO
+import time
+
+LED_PIN = 18
+BUTTON_PIN = 17
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+try:
+    while True:
+        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            GPIO.output(LED_PIN, GPIO.HIGH)
+        else:
+            GPIO.output(LED_PIN, GPIO.LOW)
+        time.sleep(0.05)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+--------------
+
+Guardar: Ctrl+X -> Y -> Enter
+Ejecutar: python3 buzzer.py
+
+
+================================================================
+EJERCICIO 3: LED con boton inicio y boton parada (buzzer2.py)
+================================================================
+nano buzzer2.py
+
+--- CODIGO ---
+import RPi.GPIO as GPIO
+import time
+
+LED_PIN = 18
+BTN_START = 17
+BTN_STOP = 27
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+GPIO.setup(BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(BTN_STOP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+led_on = False
+
+try:
+    while True:
+        if GPIO.input(BTN_START) == GPIO.LOW:
+            led_on = True
+        if GPIO.input(BTN_STOP) == GPIO.LOW:
+            led_on = False
+        GPIO.output(LED_PIN, GPIO.HIGH if led_on else GPIO.LOW)
+        time.sleep(0.05)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+--------------
+
+Ejecutar: python3 buzzer2.py
+
+
+================================================================
+EJERCICIO 4: Secuencia de LEDs con intervalo variable por SSH
+================================================================
+Crear archivo de configuracion:
+echo "0.5" > /home/rpiuser/Documentos/lab4/interval.txt
+
+nano secuencia.py
+
+--- CODIGO ---
+import RPi.GPIO as GPIO
+import time
+
+LED1 = 18
+LED2 = 27
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED1, GPIO.OUT)
+GPIO.setup(LED2, GPIO.OUT)
+
+def read_interval():
+    try:
+        with open("interval.txt", "r") as f:
+            return float(f.read().strip())
+    except:
+        return 0.5
+
+try:
+    while True:
+        interval = read_interval()
+        GPIO.output(LED1, GPIO.HIGH)
+        GPIO.output(LED2, GPIO.LOW)
+        time.sleep(interval)
+        GPIO.output(LED1, GPIO.LOW)
+        GPIO.output(LED2, GPIO.HIGH)
+        time.sleep(interval)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+--------------
+
+Ejecutar: python3 secuencia.py
+
+Para cambiar intervalo desde otra terminal SSH sin detener el programa:
+echo "1.0" > /home/rpiuser/Documentos/lab4/interval.txt
+
+
+================================================================
+VSCODE REMOTE SSH
+================================================================
+1. Instalar extension: Remote - SSH en VSCode
+2. Presionar F1 -> Remote-SSH: Connect to Host
+3. Escribir: rpiuser@192.168.88.249
+4. Seleccionar /home/angel/.ssh/config
+5. Ingresar contrasena: Raspi2026*
+6. En la esquina inferior izquierda aparecera la IP confirmando conexion
