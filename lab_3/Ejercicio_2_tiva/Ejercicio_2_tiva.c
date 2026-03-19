@@ -11,7 +11,7 @@
 #include "driverlib/gpio.h"
 #include "driverlib/sysctl.h"
 
-uint32_t ui32SysClock; // ✅ DECLARADO
+uint32_t ui32SysClock; //  DECLARADO
 
 #ifdef DEBUG
 void __error__(char *pcFilename, uint32_t ui32Line)
