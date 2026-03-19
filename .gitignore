@@ -1,0 +1,15 @@
+*.o
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+build/
+__pycache__/
+*.pyc
+.vscode/settings.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.log
