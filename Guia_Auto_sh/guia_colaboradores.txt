@@ -1,0 +1,158 @@
+================================================================
+  GUÍA DE CONFIGURACIÓN — EMBEDDED SYSTEMS II
+  Repo: Grupo_Embebidos_2026
+  Responsable: migueltorrezv
+================================================================
+
+ANTES DE EMPEZAR — LO QUE NECESITAS
+--------------------------------------
+  1. Tener Git instalado
+     → Abre una terminal y escribe:
+         sudo apt install git
+
+  2. Tener una cuenta en GitHub
+     → Si no tienes: https://github.com
+
+  3. Haber aceptado la invitación de colaborador
+     → migueltorrezv te enviará una invitación por email
+     → Ábrela y haz click en "Accept invitation"
+     → SIN esto NO podrás subir cambios
+
+  4. Tener los archivos:
+     → git_colaborador.sh
+     → guia_colaboradores.txt  (este archivo)
+
+
+================================================================
+  PASO 1 — GENERAR TU TOKEN DE GITHUB (tu propia cuenta)
+================================================================
+
+  Necesitas un token para identificarte al subir cambios.
+  Hazlo con TU PROPIA cuenta de GitHub:
+
+  1. Ve a github.com e inicia sesión con tu cuenta
+  2. Click en tu foto (arriba derecha) → Settings
+  3. Baja hasta el final del menú → Developer settings
+  4. Personal access tokens → Tokens (classic)
+  5. Generate new token → Generate new token (classic)
+  6. En Note escribe: Embedded Systems 2026
+  7. En Expiration elige: No expiration
+  8. Marca el permiso: [✓] repo  (el primero del listado)
+  9. Click en el botón verde: Generate token
+  10. COPIA EL TOKEN — solo se muestra una vez
+      Se ve así: ghp_xxxxxxxxxxxxxxxxxxxx
+
+  ¡IMPORTANTE! Guarda ese token en un lugar seguro
+  porque lo necesitarás en el siguiente paso.
+
+
+================================================================
+  PASO 2 — DARLE PERMISOS AL SCRIPT (solo una vez)
+================================================================
+
+  Abre una terminal en la carpeta donde está el script:
+
+    chmod +x git_colaborador.sh
+
+
+================================================================
+  PASO 3 — EJECUTAR EL SCRIPT
+================================================================
+
+  En la terminal escribe:
+
+    ./git_colaborador.sh
+
+  Verás este menú:
+
+    1) Configurar y clonar   (solo la primera vez)
+    2) Subir mis cambios
+    3) Bajar cambios del grupo
+    4) Crear carpeta de lab/proyecto
+    5) Ver historial del grupo
+    0) Salir
+
+
+================================================================
+  PASO 4 — CONFIGURAR Y CLONAR (SOLO LA PRIMERA VEZ)
+================================================================
+
+  Elige la opción 1. El script te pedirá:
+
+    · Tu nombre     → el que aparecerá en los commits
+    · Tu email      → el de tu cuenta de GitHub
+    · Tu token      → el que generaste en el Paso 1
+
+  El script descargará automáticamente el repositorio
+  del grupo a tu computadora en:
+
+    ~/Grupo_Embebidos_2026
+
+  Si ves un error verifica:
+    · Que aceptaste la invitación de migueltorrezv
+    · Que tu token es correcto
+    · Que tienes conexión a internet
+
+
+================================================================
+  USO DIARIO — LO QUE HARÁS CADA CLASE
+================================================================
+
+  ANTES DE TRABAJAR → Opción 3 (Bajar cambios)
+  -----------------------------------------------
+  Siempre baja los cambios del grupo antes de empezar.
+
+
+  AL TERMINAR → Opción 2 (Subir cambios)
+  -----------------------------------------------
+  El script te pregunta:
+
+    · ¿Qué subir?
+        1 = Todo lo que modificaste
+        2 = Solo tu carpeta de lab (recomendado)
+        3 = Archivos específicos
+
+    · Mensaje del commit:
+        Describe qué hiciste, por ejemplo:
+        "lab_3 terminado - control PWM"
+
+
+  CREAR NUEVA CARPETA → Opción 4
+  -----------------------------------------------
+  Puedes escribir directamente el nombre:
+    lab_4, proyecto_2, mi_carpeta...
+  O elegir por número: 1=lab  2=proyecto  3=tarea
+
+
+================================================================
+  ERRORES COMUNES Y SOLUCIONES
+================================================================
+
+  ERROR: "push rechazado / no puedo subir"
+  → Solución: Verifica que aceptaste la invitación
+    de migueltorrezv en tu email de GitHub
+
+  ERROR: "token inválido / authentication failed"
+  → Solución: Ejecuta el script → opción 1 de nuevo
+    y genera un token nuevo en GitHub
+
+  ERROR: "conflicto al hacer pull"
+  → Solución: Avisa a migueltorrezv
+
+  ERROR: "git no encontrado"
+  → Solución: sudo apt install git
+
+  ERROR: "Permission denied"
+  → Solución: chmod +x git_colaborador.sh
+
+
+================================================================
+  CONTACTO
+================================================================
+
+  Cualquier problema contacta a:
+
+    GitHub : migueltorrezv
+    Repo   : github.com/migueltorrezv/Grupo_Embebidos_2026
+
+================================================================
