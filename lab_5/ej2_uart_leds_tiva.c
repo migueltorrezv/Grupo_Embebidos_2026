@@ -6,22 +6,23 @@
 //   USB microUSB TIVA -> Puerto USB RPi (/dev/ttyACM0)
 //
 // LEDs de usuario TM4C1294XL:
-//   PN0 -> LED D1
-//   PN1 -> LED D2
-//   PF0 -> LED D3
-//   PF4 -> LED D4
+//   PN0 -> LED D2
+//   PN1 -> LED D1
+//   PF0 -> LED D4
+//   PF4 -> LED D3
 //
 // Logica de distancia:
 //   dist > 10 cm        -> todos apagados
 //   8  < dist <= 10 cm  -> PN1
 //   6  < dist <= 8  cm  -> PN1 + PN0
 //   4  < dist <= 6  cm  -> PN1 + PN0 + PF4
-//   dist <= 4 cm        -> PN1 + PN0 + PF4 + PF0 (todos)
+//   dist <= 4 cm        -> todos encendidos
 // ============================================================
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdlib.h>   // atof()
+#include <stdlib.h>
+#include <string.h>
 #include "inc/hw_memmap.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
@@ -29,7 +30,6 @@
 #include "driverlib/pin_map.h"
 #include "utils/uartstdio.c"
 
-// Mascaras de LEDs
 #define LED_PN1  0x02
 #define LED_PN0  0x01
 #define LED_PF4  0x10
@@ -44,7 +44,6 @@ void GPIO_LEDs_Init(void) {
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_PF0 | LED_PF4);
 }
 
-// Escribe en ambos puertos de LEDs en una sola llamada
 void set_leds(uint8_t pn_val, uint8_t pf_val) {
     GPIOPinWrite(GPIO_PORTN_BASE, LED_PN0 | LED_PN1, pn_val);
     GPIOPinWrite(GPIO_PORTF_BASE, LED_PF0 | LED_PF4, pf_val);
@@ -55,7 +54,7 @@ void UART0_Init(void) {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     GPIOPinConfigure(GPIO_PA0_U0RX);
     GPIOPinConfigure(GPIO_PA1_U0TX);
-    GPIOPinTypeUART(GPIO_PORTA_BASE, 0x03);  // PA0=RX, PA1=TX
+    GPIOPinTypeUART(GPIO_PORTA_BASE, 0x03);
     UARTStdioConfig(0, 9600, 120000000);
 }
 
@@ -71,22 +70,33 @@ int main(void) {
     char buf[32];
 
     while(1) {
-        // Esperar string de distancia desde RPi (ej: "12.50\n")
+        // Recibir string de distancia
         UARTgets(buf, sizeof(buf));
+
+        // Limpiar \r \n y espacios
+        int i = 0;
+        while(buf[i] != '\0') {
+            if(buf[i] == '\r' || buf[i] == '\n' || buf[i] == ' ')
+                buf[i] = '\0';
+            i++;
+        }
 
         // Convertir string a float
         float dist = (float)atof(buf);
 
+        // Debug: reenviar a RPi lo que recibio
+        UARTprintf("Recibido: %s -> %.1f cm\n", buf, dist);
+
         if (dist > 10.0f) {
-            set_leds(0x00, 0x00);                          // todos apagados
+            set_leds(0x00, 0x00);
         } else if (dist > 8.0f) {
-            set_leds(LED_PN1, 0x00);                       // solo PN1
+            set_leds(LED_PN1, 0x00);
         } else if (dist > 6.0f) {
-            set_leds(LED_PN1 | LED_PN0, 0x00);            // PN1 + PN0
+            set_leds(LED_PN1 | LED_PN0, 0x00);
         } else if (dist > 4.0f) {
-            set_leds(LED_PN1 | LED_PN0, LED_PF4);         // PN1 + PN0 + PF4
+            set_leds(LED_PN1 | LED_PN0, LED_PF4);
         } else {
-            set_leds(LED_PN1 | LED_PN0, LED_PF4 | LED_PF0); // todos
+            set_leds(LED_PN1 | LED_PN0, LED_PF4 | LED_PF0);
         }
     }
 }
