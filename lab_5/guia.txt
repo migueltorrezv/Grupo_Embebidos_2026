@@ -1,0 +1,124 @@
+  LAB 6
+
+
+  EJERCICIO 1: Potenciometro + ADC + Timer0 (TIVA)
+
+Componente          Pin/Terminal      ->  TIVA TM4C1294XL
+
+Potenciometro       Pin izquierdo     ->  3.3V
+Potenciometro       Pin central(wiper)->  PK3  (AIN19)
+Potenciometro       Pin derecho       ->  GND
+
+LED PN0             Anodo             ->  PN0
+LED PN0             Catodo            ->  330 ohm -> GND
+
+LED PN1             Anodo             ->  PN1
+LED PN1             Catodo            ->  330 ohm -> GND
+
+Los LEDs PN0 y PN1 son los LEDs de usuario integrados
+      en la placa. No requieren conexion externa.
+
+  EJERCICIO 2A: HC-SR04 -> Raspberry Pi 4
+
+HC-SR04             Pin               ->  Raspberry Pi 4 (BCM)
+
+HC-SR04             VCC               ->  5V       (Pin fisico 2)
+HC-SR04             GND               ->  GND      (Pin fisico 6)
+HC-SR04             TRIG              ->  GPIO18   (Pin fisico 12)
+HC-SR04             ECHO              ->  [ver divisor abajo]
+
+DIVISOR DE TENSION (OBLIGATORIO - ECHO es 5V, GPIO tolera 3.3V):
+
+  ECHO ---[330 ohm]--- GPIO24 (Pin fisico 18) ---[470 ohm]--- GND
+
+  Tension en GPIO24 = 5V * (470 / 800) = 2.94V  [seguro para RPi]
+
+
+  EJERCICIO 2B: TIVA -> Raspberry Pi 4 (UART via USB)
+
+Dispositivo         Conexion          ->  Destino
+
+TIVA                USB micro-USB     ->  Puerto USB RPi 4
+
+  Esto crea automaticamente /dev/ttyACM0 en la RPi.
+  Verificar con:  ls /dev/ttyACM*
+  o con:          dmesg | tail -5   (despues de conectar)
+
+LEDs TIVA (usuario, integrados en placa):
+  PN0, PN1  ->  Puerto N  (no requieren conexion externa)
+  PF0, PF4  ->  Puerto F  (no requieren conexion externa)
+
+
+  EJERCICIO 3 y 4: Motor DC + L298N -> Raspberry Pi 4
+
+L298N               Terminal          ->  Raspberry Pi 4 (BCM)
+
+L298N               ENA               ->  GPIO12   (Pin fisico 32) [PWM]
+L298N               IN1               ->  GPIO20   (Pin fisico 38)
+L298N               IN2               ->  GPIO21   (Pin fisico 40)
+L298N               GND               ->  GND RPi  (Pin fisico 34)
+
+L298N               Terminal          ->  Alimentacion externa
+
+L298N               VCC motor (+12V)  ->  Bateria 9V terminal (+)
+L298N               GND               ->  Bateria 9V terminal (-)
+                                          [mismo GND que RPi]
+
+L298N               Terminal          ->  Motor DC
+
+L298N               OUT1              ->  Motor terminal A
+L298N               OUT2              ->  Motor terminal B
+
+NOTA: Si el motor gira al reves, intercambiar OUT1 y OUT2.
+
+
+  EJERCICIO 5: Potenciometro -> MCP3008 (ADC SPI) -> RPi -> PWM
+
+MCP3008             Pin               ->  Raspberry Pi 4 (BCM)
+
+MCP3008             VDD    (pin 16)   ->  3.3V     (Pin fisico 1)
+MCP3008             VREF   (pin 15)   ->  3.3V     (Pin fisico 1)
+MCP3008             AGND   (pin 14)   ->  GND      (Pin fisico 9)
+MCP3008             DGND   (pin  9)   ->  GND      (Pin fisico 9)
+MCP3008             CLK    (pin 13)   ->  GPIO11   (Pin fisico 23) [SCLK]
+MCP3008             DOUT   (pin 12)   ->  GPIO9    (Pin fisico 21) [MISO]
+MCP3008             DIN    (pin 11)   ->  GPIO10   (Pin fisico 19) [MOSI]
+MCP3008             CS     (pin 10)   ->  GPIO8    (Pin fisico 24) [CE0]
+MCP3008             CH0    (pin  1)   ->  Potenciometro wiper
+
+Potenciometro       Pin izquierdo     ->  3.3V
+Potenciometro       Pin central       ->  MCP3008 CH0 (pin 1)
+Potenciometro       Pin derecho       ->  GND
+
+LED externo (fase 1 del ejercicio):
+LED                 Anodo             ->  GPIO18   (Pin fisico 12)
+LED                 Catodo            ->  330 ohm  -> GND
+
+Motor DC fase 2 (reemplaza el LED):
+  Cambiar GPIO18 por GPIO12 (ENA del L298N)
+  Agregar IN1->GPIO20, IN2->GPIO21  (igual que Ej3)
+
+
+  RESUMEN DE PINES SPI EN RASPBERRY PI 4
+
+Funcion     GPIO (BCM)    Pin fisico
+
+MOSI        GPIO10        Pin 19
+MISO        GPIO9         Pin 21
+SCLK        GPIO11        Pin 23
+CE0 (CS)    GPIO8         Pin 24
+3.3V        -             Pin 1 o 17
+5V          -             Pin 2 o 4
+GND         -             Pin 6, 9, 14, 20, 25, 30, 34, 39
+
+  Activar SPI en RPi:  sudo raspi-config
+                       -> Interface Options -> SPI -> Enable
+
+  RESUMEN DE PINES PWM EN RASPBERRY PI 4
+
+Canal       GPIO (BCM)    Pin fisico    Nota
+
+PWM0        GPIO12        Pin 32        [recomendado motores]
+PWM0        GPIO18        Pin 12        [alternativa]
+PWM1        GPIO13        Pin 33
+PWM1        GPIO19        Pin 35
