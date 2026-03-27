@@ -13,7 +13,7 @@ LDFLAGS += -L$(TIVAWARE)/driverlib/gcc -ldriver
 LDFLAGS += --specs=nosys.specs
 
 # Cambiar SRC por el archivo que quieras compilar
-SRC     = ej2_uart_leds_tiva.c
+SRC     = ej1_adc_timer0.c
 STARTUP = startup_gcc.c
 BIN     = $(SRC:.c=.bin)
 AXF     = $(SRC:.c=.axf)
