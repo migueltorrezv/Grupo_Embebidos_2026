@@ -5,7 +5,7 @@
 // Conexiones UART:
 //   USB microUSB TIVA -> Puerto USB RPi (/dev/ttyACM0)
 //
-// LEDs de usuario TM4C1294XL:
+// LEDs de usuario TM4C1294XL (integrados en placa):
 //   PN0 -> LED D2
 //   PN1 -> LED D1
 //   PF0 -> LED D4
@@ -17,6 +17,9 @@
 //   6  < dist <= 8  cm  -> PN1 + PN0
 //   4  < dist <= 6  cm  -> PN1 + PN0 + PF4
 //   dist <= 4 cm        -> todos encendidos
+//
+// Compilar con: startup_gcc.c incluido en Makefile
+// Baud rate: 115200
 // ============================================================
 
 #include <stdint.h>
@@ -24,10 +27,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "inc/hw_memmap.h"
+#include "inc/hw_ints.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
 #include "driverlib/uart.h"
 #include "driverlib/pin_map.h"
+#include "driverlib/interrupt.h"
+#include "driverlib/rom_map.h"
 #include "utils/uartstdio.c"
 
 #define LED_PN1  0x02
@@ -35,33 +41,35 @@
 #define LED_PF4  0x10
 #define LED_PF0  0x01
 
+uint32_t g_ui32SysClock;
+
 void GPIO_LEDs_Init(void) {
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPION));
-    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
-    GPIOPinTypeGPIOOutput(GPIO_PORTN_BASE, LED_PN0 | LED_PN1);
-    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_PF0 | LED_PF4);
+    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);
+    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    while(!MAP_SysCtlPeripheralReady(SYSCTL_PERIPH_GPION));
+    while(!MAP_SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
+    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTN_BASE, LED_PN0 | LED_PN1);
+    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_PF0 | LED_PF4);
 }
 
 void set_leds(uint8_t pn_val, uint8_t pf_val) {
-    GPIOPinWrite(GPIO_PORTN_BASE, LED_PN0 | LED_PN1, pn_val);
-    GPIOPinWrite(GPIO_PORTF_BASE, LED_PF0 | LED_PF4, pf_val);
+    MAP_GPIOPinWrite(GPIO_PORTN_BASE, LED_PN0 | LED_PN1, pn_val);
+    MAP_GPIOPinWrite(GPIO_PORTF_BASE, LED_PF0 | LED_PF4, pf_val);
 }
 
 void UART0_Init(void) {
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    GPIOPinConfigure(GPIO_PA0_U0RX);
-    GPIOPinConfigure(GPIO_PA1_U0TX);
-    GPIOPinTypeUART(GPIO_PORTA_BASE, 0x03);
-    UARTStdioConfig(0, 9600, 120000000);
+    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+    MAP_GPIOPinConfigure(GPIO_PA0_U0RX);
+    MAP_GPIOPinConfigure(GPIO_PA1_U0TX);
+    MAP_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    UARTStdioConfig(0, 115200, g_ui32SysClock);
 }
 
 int main(void) {
-    SysCtlClockFreqSet(
+    g_ui32SysClock = MAP_SysCtlClockFreqSet(
         SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
-        SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480,
+        SYSCTL_USE_PLL | SYSCTL_CFG_VCO_240,
         120000000);
 
     GPIO_LEDs_Init();
@@ -70,7 +78,6 @@ int main(void) {
     char buf[32];
 
     while(1) {
-        // Recibir string de distancia
         UARTgets(buf, sizeof(buf));
 
         // Limpiar \r \n y espacios
@@ -81,10 +88,7 @@ int main(void) {
             i++;
         }
 
-        // Convertir string a float
         float dist = (float)atof(buf);
-
-        // Debug: reenviar a RPi lo que recibio
         UARTprintf("Recibido: %s -> %.1f cm\n", buf, dist);
 
         if (dist > 10.0f) {
