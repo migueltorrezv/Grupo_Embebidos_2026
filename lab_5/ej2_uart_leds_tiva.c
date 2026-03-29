@@ -1,26 +1,5 @@
-// ============================================================
 // Ejercicio 2 - TIVA TM4C1294XL
 // Recibe distancia via UART desde RPi y controla LEDs de usuario
-//
-// Conexiones UART:
-//   USB microUSB TIVA -> Puerto USB RPi (/dev/ttyACM0)
-//
-// LEDs de usuario TM4C1294XL (integrados en placa):
-//   PN0 -> LED D2
-//   PN1 -> LED D1
-//   PF0 -> LED D4
-//   PF4 -> LED D3
-//
-// Logica de distancia:
-//   dist > 10 cm        -> todos apagados
-//   8  < dist <= 10 cm  -> PN1
-//   6  < dist <= 8  cm  -> PN1 + PN0
-//   4  < dist <= 6  cm  -> PN1 + PN0 + PF4
-//   dist <= 4 cm        -> todos encendidos
-//
-// Compilar con: startup_gcc.c incluido en Makefile
-// Baud rate: 115200
-// ============================================================
 
 #include <stdint.h>
 #include <stdbool.h>

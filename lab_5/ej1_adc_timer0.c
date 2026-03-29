@@ -1,17 +1,4 @@
-// ============================================================
 // Ejercicio 1: Potenciometro 5k controla velocidad secuencia
-//              4 LEDs via ADC (AIN19/PK3) + Timer 0
-// Conexiones:
-//   Pot VCC   -> 3.3V
-//   Pot Wiper -> PK3 (AIN19)
-//   Pot GND   -> GND
-//   LEDs PN0, PN1, PF0, PF4 -> integrados en placa
-//
-// Mapeo:
-//   Pot MINIMO (ADC=0)    -> 1.0s por LED (lento)
-//   Pot MAXIMO (ADC=4095) -> 0.1s por LED (rapido)
-// ============================================================
-
 #include <stdint.h>
 #include <stdbool.h>
 #include "inc/hw_memmap.h"
@@ -25,9 +12,8 @@
 
 uint32_t g_ui32SysClock;
 volatile uint8_t  led_state = 0;
-volatile uint32_t g_ticks   = 0;  // periodo actual en ticks
+volatile uint32_t g_ticks   = 0; 
 
-// ISR Timer0: avanza LED y recarga timer con periodo del ADC
 void Timer0A_Handler(void) {
     TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 
@@ -43,7 +29,7 @@ void Timer0A_Handler(void) {
         case 3: MAP_GPIOPinWrite(GPIO_PORTF_BASE, 0x11, 0x01); break; // PF0
     }
 
-    // Recargar timer con el periodo actualizado por el main
+
     TimerLoadSet(TIMER0_BASE, TIMER_A, g_ticks - 1);
 }
 
@@ -92,22 +78,18 @@ int main(void) {
     TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
     MAP_IntMasterEnable();
 
-    // Periodo inicial: 0.5s
     g_ticks = g_ui32SysClock / 2;
     TimerLoadSet(TIMER0_BASE, TIMER_A, g_ticks - 1);
     TimerEnable(TIMER0_BASE, TIMER_A);
 
-    // Encender primer LED
     MAP_GPIOPinWrite(GPIO_PORTN_BASE, 0x03, 0x02);
 
     while(1) {
         uint32_t adc_val = ADC_Read();  // 0 a 4095
 
-        // pot minimo=lento(1s), pot maximo=rapido(0.1s)
         float ratio = 1.0f - ((float)adc_val / 4095.0f);
         g_ticks = (uint32_t)(g_ui32SysClock * (0.1f + ratio * 0.9f));
-
-        // Esperar 100ms antes de releer
+        
         MAP_SysCtlDelay(g_ui32SysClock / 30);
     }
 }
