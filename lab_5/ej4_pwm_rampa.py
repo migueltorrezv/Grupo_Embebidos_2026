@@ -35,7 +35,7 @@ pwm.start(0)
 try:
     while True:
         # Rampa subida: 0% a 100% en pasos de 1%
-        for dc in range(0, 101, 1):
+        for dc in range(0, 101, 3):
             pwm.ChangeDutyCycle(dc)
             print(f"Velocidad: {dc}%")
             sleep(0.5)  # 0.5 segundos por paso = 50s ciclo completo

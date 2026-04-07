@@ -38,7 +38,7 @@ try:
     for dc in duty_cycles:
         print(f"Duty cycle: {dc}%")
         pwm.ChangeDutyCycle(dc)
-        sleep(3)  # 3 segundos por velocidad
+        sleep(4)  # 4 segundos por velocidad
 
     print("Ciclo completo, deteniendo motor.")
     pwm.ChangeDutyCycle(0)

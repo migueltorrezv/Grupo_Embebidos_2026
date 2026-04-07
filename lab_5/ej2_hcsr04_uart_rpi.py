@@ -3,14 +3,13 @@
 # HC-SR04 mide distancia y envia valor via UART a TIVA
 #
 # Conexiones HC-SR04:
-#   VCC  -> 5V  (Pin 2)
-#   GND  -> GND (Pin 6)
-#   TRIG -> GPIO18 (Pin 12)
-#   ECHO -> 330ohm -> GPIO24 (Pin 18) -> 470ohm -> GND
-#           (divisor de tension: ECHO es 5V, GPIO tolera 3.3V)
+#   VCC  -> Pin 2  (5V)
+#   GND  -> Pin 6  (GND)
+#   TRIG -> Pin 12 (GPIO18)
+#   ECHO -> 330ohm -> Pin 18 (GPIO24) -> 470ohm -> GND
 #
-# Conexion UART (USB):
-#   TIVA USB microUSB -> Puerto USB de RPi (/dev/ttyACM0)
+# Conexion UART:
+#   TIVA micro-USB -> puerto USB RPi -> /dev/ttyACM0
 # ============================================================
 
 import RPi.GPIO as GPIO
@@ -20,51 +19,41 @@ import time
 TRIG = 18
 ECHO = 24
 
+GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 GPIO.output(TRIG, False)
+time.sleep(0.5)  # estabilizar sensor al inicio
 
-# UART hacia TIVA via USB
-ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+# UART hacia TIVA
+ser = serial.Serial('/dev/ttyACM1', 115200, timeout=1)
 ser.reset_input_buffer()
-time.sleep(0.5)  # esperar que TIVA inicialice
 
 def medir_distancia():
-    # Pulso TRIG de 10 microsegundos
+    # Pulso TRIG 10us
     GPIO.output(TRIG, True)
     time.sleep(0.00001)
     GPIO.output(TRIG, False)
 
-    # Esperar flanco de subida de ECHO (timeout 40ms)
-    timeout = time.time() + 0.04
+    # Esperar subida ECHO
     while GPIO.input(ECHO) == 0:
-        start = time.time()
-        if time.time() > timeout:
-            return -1.0
+        inicio_pulso = time.time()
 
-    # Esperar flanco de bajada de ECHO
-    timeout = time.time() + 0.04
+    # Esperar bajada ECHO
     while GPIO.input(ECHO) == 1:
-        stop = time.time()
-        if time.time() > timeout:
-            return -1.0
+        fin_pulso = time.time()
 
-    # distancia [cm] = (tiempo [s] * 34300 cm/s) / 2
-    return round((stop - start) * 34300 / 2, 2)
+    distancia = ((fin_pulso - inicio_pulso) * 34300) / 2
+    return round(distancia, 2)
 
 try:
+    print("Iniciando... Ctrl+C para detener.")
     while True:
         dist = medir_distancia()
-
-        if dist < 0:
-            print("Error de lectura, reintentando...")
-        else:
-            print(f"Distancia: {dist} cm")
-            # Enviar a TIVA como string con newline
-            ser.write(f"{dist}\n".encode('utf-8'))
-
-        time.sleep(0.2)  # 5 mediciones por segundo
+        print(f"Distancia: {dist} cm")
+        ser.write(f"{dist}\n".encode('utf-8'))
+        time.sleep(0.5)
 
 except KeyboardInterrupt:
     print("Deteniendo...")
