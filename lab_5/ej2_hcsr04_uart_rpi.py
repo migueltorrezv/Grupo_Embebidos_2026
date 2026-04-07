@@ -1,6 +1,6 @@
-# ============================================================
 # Ejercicio 2 - Raspberry Pi 4
 # HC-SR04 mide distancia y envia valor via UART a TIVA
+<<<<<<< HEAD
 #
 # Conexiones HC-SR04:
 #   VCC  -> Pin 2  (5V)
@@ -11,6 +11,8 @@
 # Conexion UART:
 #   TIVA micro-USB -> puerto USB RPi -> /dev/ttyACM0
 # ============================================================
+=======
+>>>>>>> 654c3870c0ea79f235d840f6bbaedcfec2314b5c
 
 import RPi.GPIO as GPIO
 import serial
@@ -24,6 +26,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 GPIO.output(TRIG, False)
+<<<<<<< HEAD
 time.sleep(0.5)  # estabilizar sensor al inicio
 
 # UART hacia TIVA
@@ -32,15 +35,33 @@ ser.reset_input_buffer()
 
 def medir_distancia():
     # Pulso TRIG 10us
+=======
+time.sleep(0.5)  
+
+
+ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+ser.reset_input_buffer()
+
+def medir_distancia():
+    GPIO.output(TRIG, False)
+    time.sleep(0.1)
+    
+>>>>>>> 654c3870c0ea79f235d840f6bbaedcfec2314b5c
     GPIO.output(TRIG, True)
     time.sleep(0.00001)
     GPIO.output(TRIG, False)
 
+<<<<<<< HEAD
     # Esperar subida ECHO
     while GPIO.input(ECHO) == 0:
         inicio_pulso = time.time()
 
     # Esperar bajada ECHO
+=======
+    while GPIO.input(ECHO) == 0:
+        inicio_pulso = time.time()
+
+>>>>>>> 654c3870c0ea79f235d840f6bbaedcfec2314b5c
     while GPIO.input(ECHO) == 1:
         fin_pulso = time.time()
 

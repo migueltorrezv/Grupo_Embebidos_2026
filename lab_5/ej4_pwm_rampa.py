@@ -1,17 +1,6 @@
-# ============================================================
 # Ejercicio 4 - Raspberry Pi 4
 # Rampa PWM: 0% -> 100%, incremento 1% cada 0.5s
-# Al llegar a 100%, vuelve a 0% y repite
-#
-# Conexiones L298N -> RPi:
-#   ENA  -> GPIO12 (PWM hardware)
-#   IN1  -> GPIO20
-#   IN2  -> GPIO21
-#   VCC motor -> Bateria 9V (+)
-#   GND  -> GND RPi + GND Bateria
-#   OUT1 -> Motor terminal A
-#   OUT2 -> Motor terminal B
-# ============================================================
+# Al llegar a 100% vuelve a 0% y repite
 
 import RPi.GPIO as GPIO
 from time import sleep
@@ -20,6 +9,7 @@ ENA = 12
 IN1 = 20
 IN2 = 21
 
+GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(ENA, GPIO.OUT)
 GPIO.setup(IN1, GPIO.OUT)
@@ -34,14 +24,16 @@ pwm.start(0)
 
 try:
     while True:
+<<<<<<< HEAD
         # Rampa subida: 0% a 100% en pasos de 1%
         for dc in range(0, 101, 3):
+=======
+        for dc in range(0, 101, 1): 
+>>>>>>> 654c3870c0ea79f235d840f6bbaedcfec2314b5c
             pwm.ChangeDutyCycle(dc)
             print(f"Velocidad: {dc}%")
-            sleep(0.5)  # 0.5 segundos por paso = 50s ciclo completo
-
-        # Al llegar a 100%, el for termina y el while lo reinicia desde 0
-
+            sleep(0.5)
+            
 except KeyboardInterrupt:
     print("Deteniendo...")
 finally:
