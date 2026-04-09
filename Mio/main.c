@@ -1,95 +1,190 @@
-// Ejercicio 1: Potenciometro 5k controla velocidad secuencia
 #include <stdint.h>
 #include <stdbool.h>
 #include "inc/hw_memmap.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
-#include "driverlib/adc.h"
-#include "driverlib/timer.h"
-#include "driverlib/interrupt.h"
+#include "driverlib/uart.h"
 #include "driverlib/pin_map.h"
-#include "driverlib/rom_map.h"
+#include "driverlib/pwm.h"
+#include "inc/hw_types.h"
 
 uint32_t g_ui32SysClock;
-volatile uint8_t  led_state = 0;
-volatile uint32_t g_ticks   = 0; 
 
-void Timer0A_Handler(void) {
-    TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+void UARTSendString(const char *str) {
+    while (*str) UARTCharPut(UART0_BASE, *str++);
+}
 
-    led_state = (led_state + 1) % 4;
+void UARTSendInt(uint32_t val) {
+    char buf[12];
+    int i = 0;
+    if (val == 0) { UARTCharPut(UART0_BASE, '0'); return; }
+    while (val > 0) { buf[i++] = '0' + (val % 10); val /= 10; }
+    for (int j = i-1; j >= 0; j--) UARTCharPut(UART0_BASE, buf[j]);
+}
 
-    MAP_GPIOPinWrite(GPIO_PORTN_BASE, 0x03, 0x00);
-    MAP_GPIOPinWrite(GPIO_PORTF_BASE, 0x11, 0x00);
+void delay_ms(uint32_t ms) {
+    SysCtlDelay((g_ui32SysClock / 3000) * ms);
+}
 
-    switch(led_state) {
-        case 0: MAP_GPIOPinWrite(GPIO_PORTN_BASE, 0x03, 0x02); break; // PN1
-        case 1: MAP_GPIOPinWrite(GPIO_PORTN_BASE, 0x03, 0x01); break; // PN0
-        case 2: MAP_GPIOPinWrite(GPIO_PORTF_BASE, 0x11, 0x10); break; // PF4
-        case 3: MAP_GPIOPinWrite(GPIO_PORTF_BASE, 0x11, 0x01); break; // PF0
+void delay_us(uint32_t us) {
+    SysCtlDelay((g_ui32SysClock / 3000000) * us);
+}
+
+uint32_t hcsr04_read_cm(void) {
+    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, GPIO_PIN_2);
+    delay_us(10);
+    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, 0);
+
+    while(!GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_3));
+
+    uint32_t count = 0;
+    while(GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_3)) {
+        count++;
     }
 
-
-    TimerLoadSet(TIMER0_BASE, TIMER_A, g_ticks - 1);
+    float tiempo_us = count * 0.195;
+    return tiempo_us / 58.0;
 }
 
-void ADC0_Init(void) {
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOK);
-    while(!MAP_SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0));
-    MAP_GPIOPinTypeADC(GPIO_PORTK_BASE, 0x08);  // PK3 = AIN19
-    ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
-    ADCSequenceStepConfigure(ADC0_BASE, 3, 0,
-                             ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH19);
-    ADCSequenceEnable(ADC0_BASE, 3);
-    ADCIntClear(ADC0_BASE, 3);
-}
+#define PWM_PERIOD 1000
 
-uint32_t ADC_Read(void) {
-    uint32_t val;
-    ADCProcessorTrigger(ADC0_BASE, 3);
-    while(!ADCIntStatus(ADC0_BASE, 3, false));
-    ADCIntClear(ADC0_BASE, 3);
-    ADCSequenceDataGet(ADC0_BASE, 3, &val);
-    return val;
+char uart_buf[32];
+uint8_t uart_idx = 0;
+uint32_t g_speed = 50;
+
+// DIRECCIÓN
+void motor1_forward() { GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_4); }
+void motor1_backward(){ GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_5); }
+void motor2_forward() { GPIOPinWrite(GPIO_PORTM_BASE, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_4); }
+void motor2_backward(){ GPIOPinWrite(GPIO_PORTM_BASE, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_5); }
+void motores_stop() {
+    GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_4 | GPIO_PIN_5, 0);
+    GPIOPinWrite(GPIO_PORTM_BASE, GPIO_PIN_4 | GPIO_PIN_5, 0);
 }
 
 int main(void) {
-    g_ui32SysClock = MAP_SysCtlClockFreqSet(
-        SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
-        SYSCTL_USE_PLL | SYSCTL_CFG_VCO_240,
-        120000000);
 
-    ADC0_Init();
+    g_ui32SysClock = SysCtlClockFreqSet(
+        (SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
+         SYSCTL_USE_PLL | SYSCTL_CFG_VCO_240), 120000000);
 
-    // LEDs
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);
-    while(!MAP_SysCtlPeripheralReady(SYSCTL_PERIPH_GPION));
-    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTN_BASE, 0x03);
+    // UART
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA));
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    UARTConfigSetExpClk(UART0_BASE, g_ui32SysClock, 115200,
+        (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    while(!MAP_SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
-    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0x11);
+    // Buzzer
+    GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_6);
 
-    // Timer
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
-    TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-    TimerIntRegister(TIMER0_BASE, TIMER_A, Timer0A_Handler);
-    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-    MAP_IntMasterEnable();
+    // PWM
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
+    GPIOPinConfigure(GPIO_PF1_M0PWM1);
+    GPIOPinConfigure(GPIO_PF2_M0PWM2);
+    GPIOPinTypePWM(GPIO_PORTF_BASE, GPIO_PIN_1 | GPIO_PIN_2);
 
-    g_ticks = g_ui32SysClock / 2;
-    TimerLoadSet(TIMER0_BASE, TIMER_A, g_ticks - 1);
-    TimerEnable(TIMER0_BASE, TIMER_A);
+    PWMClockSet(PWM0_BASE, PWM_SYSCLK_DIV_64);
+    PWMGenConfigure(PWM0_BASE, PWM_GEN_0, PWM_GEN_MODE_DOWN);
+    PWMGenConfigure(PWM0_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN);
+    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_0, PWM_PERIOD);
+    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_1, PWM_PERIOD);
 
-    MAP_GPIOPinWrite(GPIO_PORTN_BASE, 0x03, 0x02);
+    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, PWM_PERIOD * 50 / 100);
+    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_2, PWM_PERIOD * 50 / 100);
+
+    PWMOutputState(PWM0_BASE, PWM_OUT_1_BIT | PWM_OUT_2_BIT, true);
+    PWMGenEnable(PWM0_BASE, PWM_GEN_0);
+    PWMGenEnable(PWM0_BASE, PWM_GEN_1);
+
+    // Pines motores
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOM);
+    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, GPIO_PIN_4 | GPIO_PIN_5);
+    GPIOPinTypeGPIOOutput(GPIO_PORTM_BASE, GPIO_PIN_4 | GPIO_PIN_5);
+
+    // Ultrasonico
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_2);
+    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, 0);
+    GPIOPinTypeGPIOInput(GPIO_PORTB_BASE, GPIO_PIN_3);
 
     while(1) {
-        uint32_t adc_val = ADC_Read();  // 0 a 4095
 
-        float ratio = 1.0f - ((float)adc_val / 4095.0f);
-        g_ticks = (uint32_t)(g_ui32SysClock * (0.1f + ratio * 0.9f));
-        
-        MAP_SysCtlDelay(g_ui32SysClock / 30);
+        uint32_t dist = hcsr04_read_cm();
+        UARTSendString("dist:");
+        UARTSendInt(dist);
+        UARTSendString("\n");
+
+        if (dist > 0 && dist <= 3) {
+            motores_stop();
+            UARTSendString("stop\n");
+        }
+
+        while(UARTCharsAvail(UART0_BASE)) {
+            char c = UARTCharGet(UART0_BASE);
+
+            if (c == '\n') {
+                uart_buf[uart_idx] = '\0';
+
+                if (uart_buf[0]=='f') {
+                    motor1_forward();
+                    motor2_forward();
+                }
+                else if (uart_buf[0]=='b' && uart_buf[1]=='a') {
+                    motor1_backward();
+                    motor2_backward();
+                }
+                else if (uart_buf[0]=='l') {
+                    motor1_backward();
+                    motor2_forward();
+                }
+                else if (uart_buf[0]=='r') {
+                    motor1_forward();
+                    motor2_backward();
+                }
+                else if (uart_buf[0]=='s' && uart_buf[1]=='t') {
+                    motores_stop();
+                }
+                else if (uart_buf[0]=='b' && uart_buf[1]=='u') {
+                    GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_PIN_6);
+                    delay_ms(1000);
+                    GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, 0);
+                }
+                else if (uart_buf[0]=='s' && uart_buf[1]=='p') {
+
+                    uint32_t spd = 0;
+                    for (int i = 6; uart_buf[i] >= '0' && uart_buf[i] <= '9'; i++)
+                        spd = spd * 10 + (uart_buf[i] - '0');
+
+                    if (spd > 100) spd = 100;
+                    g_speed = spd;
+
+                    float f1 = 1.0;
+                    float f2 = 0.92;
+
+                    uint32_t d1 = PWM_PERIOD * g_speed * f1 / 100;
+                    uint32_t d2 = PWM_PERIOD * g_speed * f2 / 100;
+
+                    if (d1 > PWM_PERIOD) d1 = PWM_PERIOD;
+                    if (d2 > PWM_PERIOD) d2 = PWM_PERIOD;
+
+                    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, d1);
+                    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_2, d2);
+                }
+
+                uart_idx = 0;
+            }
+            else if (uart_idx < 31) {
+                uart_buf[uart_idx++] = c;
+            }
+        }
+
+        delay_ms(50);
     }
 }
