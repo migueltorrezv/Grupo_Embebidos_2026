@@ -36,14 +36,12 @@ class RobotController:
         if self.current_model:
             self.current_model.stop()
             time.sleep(0.5)
-
         self.model_index = (self.model_index + 1) % len(self.models_names)
         self.current_model = self._create_model(self.model_index)
         self._run_model(self.current_model)
         print(f"[SWITCH] Activo: {self.models_names[self.model_index]}")
 
     def _monitor_button(self):
-        """Detecta boton GPIO26 para cambiar modelo"""
         while self.running:
             if GPIO_AVAILABLE:
                 btn = GPIO.input(26)
@@ -58,17 +56,15 @@ class RobotController:
         print("=" * 40)
         print("   ROBOT CONTROLLER")
         print("=" * 40)
-        print("Modelos: A=autonomo, B=teclado")
-        print("Boton GPIO26 → cambia modelo")
-        print("Ctrl+C → salir")
+        print("A=autonomo, B=teclado")
+        print("Boton GPIO26 cambia modelo")
+        print("Ctrl+C salir")
         print("=" * 40)
 
-        # Iniciar con Model A
         self.current_model = self._create_model(self.model_index)
         self._run_model(self.current_model)
         print(f"[INICIO] {self.models_names[self.model_index]} activo")
 
-        # Thread monitor boton
         t_btn = threading.Thread(target=self._monitor_button, daemon=True)
         t_btn.start()
 

@@ -24,9 +24,8 @@ class ModelA:
                         pass
 
     def turn(self, degrees, direction="right"):
-        """Gira X grados sin detener el programa"""
         def _do_turn():
-            t = (degrees / 360) * 2.0  # ajustar según robot
+            t = (degrees / 360) * 2.0
             self.send(direction)
             time.sleep(t)
             self.send("forward")
@@ -44,7 +43,7 @@ class ModelA:
                     self.send("stop")
                     time.sleep(0.5)
                     self.turn(180, "right")
-                    time.sleep(2.5)  # esperar rotación
+                    time.sleep(2.5)
                 time.sleep(0.1)
         except KeyboardInterrupt:
             self.stop()
