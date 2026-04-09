@@ -81,3 +81,7 @@ class RobotController:
 if __name__ == "__main__":
     robot = RobotController()
     robot.run()
+'''
+pip install readchar --break-system-packages
+python3 main_program.py
+'''
