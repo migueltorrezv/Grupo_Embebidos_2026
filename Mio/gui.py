@@ -4,10 +4,6 @@ import threading
 
 s = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1)
 
-motor1_on = False
-motor2_on = False
-vel_timer = None
-
 BG = "#0d0d0d"
 PANEL = "#1a1a2e"
 ACCENT = "#e94560"
@@ -16,101 +12,76 @@ YELLOW = "#ffd60a"
 WHITE = "#ffffff"
 GRAY = "#aaaaaa"
 
+loop_cmd = None
+
+def enviar(cmd):
+    s.write((cmd + "\n").encode())
+
+def presionar(cmd):
+    enviar(cmd)
+    global loop_cmd
+    loop_cmd = root.after(100, lambda: presionar(cmd))
+
+def soltar(event=None):
+    global loop_cmd
+    if loop_cmd:
+        root.after_cancel(loop_cmd)
+    enviar("st")
+
 def leer_serial():
     while True:
         if s.in_waiting:
             msg = s.readline().decode().strip()
-            if msg.startswith("dist:"):
-                d = msg.split(":")[1]
-                if d == "999":
-                    lbl_dist.config(text="--- cm", fg=GRAY)
-                else:
-                    lbl_dist.config(text=f"{d} cm", fg=GREEN)
-            elif msg == "stop":
-                lbl_evento.config(text="⚠ STOP - objeto detectado", fg=ACCENT)
-                btn_m1.config(bg="#333", text="Motor 1  OFF")
-                btn_m2.config(bg="#333", text="Motor 2  OFF")
-            elif msg == "motor1:on":
-                btn_m1.config(bg=GREEN, text="Motor 1  ON")
-            elif msg == "motor1:off":
-                btn_m1.config(bg="#333", text="Motor 1  OFF")
-            elif msg == "motor2:on":
-                btn_m2.config(bg=GREEN, text="Motor 2  ON")
-            elif msg == "motor2:off":
-                btn_m2.config(bg="#333", text="Motor 2  OFF")
+            root.after(0, procesar, msg)
 
-def toggle_motor1():
-    s.write(b"motor1\n")
-
-def toggle_motor2():
-    s.write(b"motor2\n")
-
-def enviar_velocidad(val):
-    global vel_timer
-    spd = int(float(val))
-    lbl_vel.config(text=f"Velocidad: {spd}%")
-    if vel_timer:
-        root.after_cancel(vel_timer)
-    vel_timer = root.after(300, lambda: s.write(f"speed:{spd}\n".encode()))
-
-def enviar_buzzer():
-    s.write(b"buzzer\n")
-    lbl_evento.config(text="🔔 Buzzer activado", fg=YELLOW)
+def procesar(msg):
+    if msg.startswith("dist:"):
+        lbl_dist.config(text=msg.split(":")[1] + " cm")
+    elif msg == "stop":
+        lbl_evento.config(text="⚠ STOP")
 
 root = tk.Tk()
-root.title("Robot Control Panel")
-root.geometry("420x600")
+root.title("Robot")
+root.geometry("400x550")
 root.configure(bg=BG)
-root.resizable(False, False)
 
-tk.Label(root, text="🤖 ROBOT CONTROL", font=("Helvetica", 20, "bold"),
-         bg=BG, fg=WHITE).pack(pady=15)
+lbl_dist = tk.Label(root, text="---", font=("Helvetica", 30), fg=GREEN, bg=BG)
+lbl_dist.pack()
 
-frame_dist = tk.Frame(root, bg=PANEL, bd=0)
-frame_dist.pack(fill="x", padx=20, pady=5)
-tk.Label(frame_dist, text="DISTANCIA", font=("Helvetica", 10),
-         bg=PANEL, fg=GRAY).pack(pady=(10,0))
-lbl_dist = tk.Label(frame_dist, text="--- cm", font=("Helvetica", 36, "bold"),
-                    bg=PANEL, fg=GREEN)
-lbl_dist.pack(pady=(0,10))
+lbl_evento = tk.Label(root, text="Listo", fg=GRAY, bg=BG)
+lbl_evento.pack()
 
-lbl_evento = tk.Label(root, text="Sistema listo", font=("Helvetica", 11),
-                      bg=BG, fg=GRAY)
-lbl_evento.pack(pady=5)
+frame = tk.Frame(root, bg=BG)
+frame.pack(pady=20)
 
-frame_motors = tk.Frame(root, bg=BG)
-frame_motors.pack(pady=10)
+def bind_btn(btn, cmd):
+    btn.bind("<ButtonPress>", lambda e: presionar(cmd))
+    btn.bind("<ButtonRelease>", soltar)
 
-btn_m1 = tk.Button(frame_motors, text="Motor 1  OFF", font=("Helvetica", 13, "bold"),
-                   bg="#333", fg=WHITE, width=14, height=2,
-                   relief="flat", cursor="hand2", command=toggle_motor1)
-btn_m1.grid(row=0, column=0, padx=10)
+btn_up = tk.Button(frame, text="↑", width=5, height=2)
+btn_up.grid(row=0, column=1)
+bind_btn(btn_up, "f")
 
-btn_m2 = tk.Button(frame_motors, text="Motor 2  OFF", font=("Helvetica", 13, "bold"),
-                   bg="#333", fg=WHITE, width=14, height=2,
-                   relief="flat", cursor="hand2", command=toggle_motor2)
-btn_m2.grid(row=0, column=1, padx=10)
+btn_left = tk.Button(frame, text="←", width=5, height=2)
+btn_left.grid(row=1, column=0)
+bind_btn(btn_left, "l")
 
-frame_vel = tk.Frame(root, bg=PANEL)
-frame_vel.pack(fill="x", padx=20, pady=10)
-tk.Label(frame_vel, text="VELOCIDAD", font=("Helvetica", 10),
-         bg=PANEL, fg=GRAY).pack(pady=(10,0))
-lbl_vel = tk.Label(frame_vel, text="Velocidad: 50%", font=("Helvetica", 14, "bold"),
-                   bg=PANEL, fg=WHITE)
-lbl_vel.pack()
-slider = tk.Scale(frame_vel, from_=0, to=100, orient=tk.HORIZONTAL,
-                  length=340, bg=PANEL, fg=WHITE, troughcolor="#333",
-                  highlightbackground=PANEL, activebackground=ACCENT,
-                  command=enviar_velocidad)
+btn_right = tk.Button(frame, text="→", width=5, height=2)
+btn_right.grid(row=1, column=2)
+bind_btn(btn_right, "r")
+
+btn_down = tk.Button(frame, text="↓", width=5, height=2)
+btn_down.grid(row=2, column=1)
+bind_btn(btn_down, "back")
+
+slider = tk.Scale(root, from_=0, to=100, orient="horizontal",
+                  command=lambda v: enviar(f"speed:{int(v)}"))
 slider.set(50)
-slider.pack(pady=(0,10))
+slider.pack()
 
-tk.Button(root, text="🔔  BUZZER", font=("Helvetica", 14, "bold"),
-          bg=ACCENT, fg=WHITE, width=20, height=2,
-          relief="flat", cursor="hand2", command=enviar_buzzer).pack(pady=15)
+tk.Button(root, text="Buzzer", command=lambda: enviar("buzzer")).pack(pady=10)
 
-t = threading.Thread(target=leer_serial, daemon=True)
-t.start()
+threading.Thread(target=leer_serial, daemon=True).start()
 
 root.mainloop()
 s.close()
