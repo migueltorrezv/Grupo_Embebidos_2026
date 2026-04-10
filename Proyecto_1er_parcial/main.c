@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "inc/hw_memmap.h"
@@ -34,7 +35,6 @@ uint32_t hcsr04_read_cm(void) {
     GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, GPIO_PIN_2);
     delay_us(10);
     GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_2, 0);
-
     uint32_t timeout = 0;
     while(!GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_3)) {
         if(++timeout > 500000) return 999;
@@ -49,7 +49,6 @@ uint32_t hcsr04_read_cm(void) {
 }
 
 #define PWM_PERIOD 1000
-
 uint32_t g_speed = 50;
 
 void set_pwm(uint32_t spd) {
@@ -100,21 +99,18 @@ void motor_rotate180(void) {
 
 char uart_buf[32];
 uint8_t uart_idx = 0;
+uint8_t modo = 1;
 
 int cmp(const char *a, const char *b) {
     while (*a && *b) { if (*a != *b) return 0; a++; b++; }
     return *a == *b;
 }
 
-// modo: 0=manual, 1=autonomo
-uint8_t modo = 1;
-
 int main(void) {
     g_ui32SysClock = SysCtlClockFreqSet(
         (SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
         SYSCTL_USE_PLL | SYSCTL_CFG_VCO_240), 120000000);
 
-    // UART0
     SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA));
@@ -124,18 +120,15 @@ int main(void) {
     UARTConfigSetExpClk(UART0_BASE, g_ui32SysClock, 115200,
                         (UART_CONFIG_WLEN_8|UART_CONFIG_STOP_ONE|UART_CONFIG_PAR_NONE));
 
-    // Buzzer PA6
     GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_6);
     GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, 0);
 
-    // Switches PJ0, PJ1
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOJ);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOJ));
     GPIOPinTypeGPIOInput(GPIO_PORTJ_BASE, GPIO_PIN_0|GPIO_PIN_1);
     GPIOPadConfigSet(GPIO_PORTJ_BASE, GPIO_PIN_0|GPIO_PIN_1,
                      GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
 
-    // PWM PF1, PF2
     SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
@@ -152,7 +145,6 @@ int main(void) {
     PWMGenEnable(PWM0_BASE, PWM_GEN_0);
     PWMGenEnable(PWM0_BASE, PWM_GEN_1);
 
-    // Motores PE4/PE5, PM4/PM5
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOE));
     GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, GPIO_PIN_4|GPIO_PIN_5);
@@ -163,7 +155,6 @@ int main(void) {
     GPIOPinTypeGPIOOutput(GPIO_PORTM_BASE, GPIO_PIN_4|GPIO_PIN_5);
     GPIOPinWrite(GPIO_PORTM_BASE, GPIO_PIN_4|GPIO_PIN_5, 0);
 
-    // HC-SR04 PB2/PB3
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB));
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_2);
@@ -174,7 +165,6 @@ int main(void) {
     bool sw1_prev = true, sw2_prev = true;
 
     while(1) {
-        // SW1 = forward, SW2 = stop
         bool sw1 = GPIOPinRead(GPIO_PORTJ_BASE, GPIO_PIN_0);
         bool sw2 = GPIOPinRead(GPIO_PORTJ_BASE, GPIO_PIN_1);
         if (!sw1 && sw1_prev) { modo = 1; motor_forward(); }
@@ -182,13 +172,11 @@ int main(void) {
         sw1_prev = sw1;
         sw2_prev = sw2;
 
-        // HC-SR04 solo en modo autonomo
         if (modo == 1) {
             uint32_t dist = hcsr04_read_cm();
             UARTSendString("dist:");
             UARTSendInt(dist);
             UARTSendString("\n");
-
             if (dist > 0 && dist <= 5) {
                 motor_stop();
                 delay_ms(500);
@@ -199,7 +187,6 @@ int main(void) {
             }
         }
 
-        // UART recepcion
         while(UARTCharsAvail(UART0_BASE)) {
             char c = UARTCharGet(UART0_BASE);
             if (c == '\n') {
