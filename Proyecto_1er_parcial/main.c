@@ -62,7 +62,6 @@ void set_pwm(uint32_t spd) {
     PWMPulseWidthSet(PWM0_BASE, PWM_OUT_2, d2);
 }
 
-// Motores: PE4=IN1, PE5=IN2, PM4=IN3, PM5=IN4
 void motor_forward(void) {
     GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_4);
     GPIOPinWrite(GPIO_PORTM_BASE, GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_4);
@@ -95,7 +94,7 @@ void motor_stop(void) {
 
 void motor_rotate180(void) {
     motor_right();
-    delay_ms(1000); // ajustar segun robot
+    delay_ms(1000);
     motor_stop();
 }
 
@@ -106,6 +105,9 @@ int cmp(const char *a, const char *b) {
     while (*a && *b) { if (*a != *b) return 0; a++; b++; }
     return *a == *b;
 }
+
+// modo: 0=manual, 1=autonomo
+uint8_t modo = 1;
 
 int main(void) {
     g_ui32SysClock = SysCtlClockFreqSet(
@@ -172,25 +174,29 @@ int main(void) {
     bool sw1_prev = true, sw2_prev = true;
 
     while(1) {
-        // Switches
+        // SW1 = forward, SW2 = stop
         bool sw1 = GPIOPinRead(GPIO_PORTJ_BASE, GPIO_PIN_0);
         bool sw2 = GPIOPinRead(GPIO_PORTJ_BASE, GPIO_PIN_1);
-        if (!sw1 && sw1_prev) { motor_forward(); }
-        if (!sw2 && sw2_prev) { motor_stop(); }
+        if (!sw1 && sw1_prev) { modo = 1; motor_forward(); }
+        if (!sw2 && sw2_prev) { modo = 0; motor_stop(); }
         sw1_prev = sw1;
         sw2_prev = sw2;
 
-        // HC-SR04
-        uint32_t dist = hcsr04_read_cm();
-        UARTSendString("dist:");
-        UARTSendInt(dist);
-        UARTSendString("\n");
-        if (dist > 0 && dist <= 5) {
-            motor_stop();
-            delay_ms(500);
-            motor_rotate180();
-            motor_forward();
-            UARTSendString("obstacle\n");
+        // HC-SR04 solo en modo autonomo
+        if (modo == 1) {
+            uint32_t dist = hcsr04_read_cm();
+            UARTSendString("dist:");
+            UARTSendInt(dist);
+            UARTSendString("\n");
+
+            if (dist > 0 && dist <= 5) {
+                motor_stop();
+                delay_ms(500);
+                motor_rotate180();
+                delay_ms(200);
+                motor_forward();
+                UARTSendString("obstacle\n");
+            }
         }
 
         // UART recepcion
@@ -198,11 +204,12 @@ int main(void) {
             char c = UARTCharGet(UART0_BASE);
             if (c == '\n') {
                 uart_buf[uart_idx] = '\0';
-                if      (cmp(uart_buf, "forward"))   motor_forward();
-                else if (cmp(uart_buf, "backward"))  motor_backward();
-                else if (cmp(uart_buf, "left"))      motor_left();
-                else if (cmp(uart_buf, "right"))     motor_right();
-                else if (cmp(uart_buf, "stop"))      motor_stop();
+                if      (cmp(uart_buf, "forward"))   { modo = 0; motor_forward(); }
+                else if (cmp(uart_buf, "backward"))  { modo = 0; motor_backward(); }
+                else if (cmp(uart_buf, "left"))      { modo = 0; motor_left(); }
+                else if (cmp(uart_buf, "right"))     { modo = 0; motor_right(); }
+                else if (cmp(uart_buf, "stop"))      { modo = 0; motor_stop(); }
+                else if (cmp(uart_buf, "auto"))      { modo = 1; motor_forward(); }
                 else if (cmp(uart_buf, "rotate180")) { motor_rotate180(); motor_forward(); }
                 else if (cmp(uart_buf, "buzzer")) {
                     GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_PIN_6);
