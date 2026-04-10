@@ -187,7 +187,10 @@ int main(void) {
         UARTSendString("\n");
         if (dist > 0 && dist <= 5) {
             motor_stop();
-            UARTSendString("stop\n");
+            delay_ms(500);
+            motor_rotate180();
+            motor_forward();
+            UARTSendString("obstacle\n");
         }
 
         // UART recepcion
