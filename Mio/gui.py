@@ -1,87 +1,158 @@
-import tkinter as tk
 import serial
-import threading
+import time           
+import threading       # dos cosas al mismo tiempo
+import sys            
+import termios         # teclado
+import tty             # No lag en teclas
 
-s = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1)
+try:
+    s = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1)
+except:
+    print("Error: Conecta la Tiva C al USB")
+    sys.exit()
 
-BG = "#0d0d0d"
-PANEL = "#1a1a2e"
-ACCENT = "#e94560"
-GREEN = "#00b4d8"
-YELLOW = "#ffd60a"
-WHITE = "#ffffff"
-GRAY = "#aaaaaa"
 
-loop_cmd = None
 
-def enviar(cmd):
-    s.write((cmd + "\n").encode())
+velocidad_actual = 70           
+nitro_encendido = False         
+robot_encendido = True          
+freno_emergencia = False        
+ultima_distancia = 999.0
 
-def presionar(cmd):
-    enviar(cmd)
-    global loop_cmd
-    loop_cmd = root.after(100, lambda: presionar(cmd))
+# FUNCION 1: PREPARAR EL ROBOT
+def preparar_pines():
+    s.write(f"speed:{velocidad_actual}\n".encode())
 
-def soltar(event=None):
-    global loop_cmd
-    if loop_cmd:
-        root.after_cancel(loop_cmd)
-    enviar("st")
-
-def leer_serial():
-    while True:
+# FUNCION 2: LECTOR SERIAL DE DISTANCIA 
+def lector_serial():
+    global ultima_distancia, robot_encendido
+    while robot_encendido:
         if s.in_waiting:
-            msg = s.readline().decode().strip()
-            root.after(0, procesar, msg)
+            msg = s.readline().decode('utf-8', errors='ignore').strip()
+            if msg.startswith("dist:"):
+                try:
+                    ultima_distancia = float(msg.split(":")[1])
+                except:
+                    pass
+        time.sleep(0.01)
 
-def procesar(msg):
-    if msg.startswith("dist:"):
-        lbl_dist.config(text=msg.split(":")[1] + " cm")
-    elif msg == "stop":
-        lbl_evento.config(text="⚠ STOP")
+# FUNCION 3: MOVER LAS RUEDAS
+def mover_robot(comando):
+    global freno_emergencia
+    
+    if freno_emergencia == True:
+        return 
+        
+    s.write(f"{comando}\n".encode())
 
-root = tk.Tk()
-root.title("Robot")
-root.geometry("400x550")
-root.configure(bg=BG)
+def frenar_robot():
+    s.write(b"x\n")
 
-lbl_dist = tk.Label(root, text="---", font=("Helvetica", 30), fg=GREEN, bg=BG)
-lbl_dist.pack()
+# FUNCION 4: NITRO (Punto 4)
+def boton_nitro():
+    global nitro_encendido, velocidad_actual
+    
+    # Cambia estado
+    if nitro_encendido == True:
+        nitro_encendido = False
+        velocidad_actual = 70      # Velocidad normal
+        print("\n[!] NITRO APAGADO: Volvemos a la programacion habitual de 70%")
+    else:
+        nitro_encendido = True
+        velocidad_actual = 100     # Velocidad máxima
+        print("\n[!] NITRO ENCENDIDO: ¡Agarrate los calzones que vamos al 100%!")
+        
+    s.write(f"speed:{velocidad_actual}\n".encode())
 
-lbl_evento = tk.Label(root, text="Listo", fg=GRAY, bg=BG)
-lbl_evento.pack()
+# FUNCION 5: TECLADO
+def leer_tecla_al_instante():
+    # Este es un truco para que no tengas que presionar 'Enter' cada vez que tocas direcciones 'W'
+    # Lee directamente la memoria de tu teclado en tiempo real.
+    configuracion_vieja = termios.tcgetattr(sys.stdin)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        letra = sys.stdin.read(1)                        # Mantiene una sola letra
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, configuracion_vieja)
+    
+    return letra.lower() # Ignora la mayuscula
 
-frame = tk.Frame(root, bg=BG)
-frame.pack(pady=20)
+# FUNCION 6: STOP
+def vigilante_de_choques():
+    global robot_encendido, freno_emergencia, ultima_distancia
+    
+    while robot_encendido == True:
+        # 10 cm por si no alcanza a parar
+        if ultima_distancia < 10.0 and ultima_distancia > 0:
+            
+            # Frenada de emergencia
+            if freno_emergencia == False:
+                print("\n Parale jueputa")
+                frenar_robot()
+                freno_emergencia = True 
+                
+        # todo chill
+        else:
+            freno_emergencia = False 
+        time.sleep(0.1) # descansito
 
-def bind_btn(btn, cmd):
-    btn.bind("<ButtonPress>", lambda e: presionar(cmd))
-    btn.bind("<ButtonRelease>", soltar)
+# FUNCION PRINCIPAL: 
+def iniciar_modelo_b():
+    global robot_encendido
+    preparar_pines()
+    print("\n Modo B: TECLADO")
+    print(" W: Adelante, S: Atras, A: Izquierda, D: Derecha")
+    print("Nitro con: N  |  Parar con: X  |  Salir con: Q")
+    
+    # vigila adelante (Serial)
+    trabajador_serial = threading.Thread(target=lector_serial)
+    trabajador_serial.start()
+    
+    # vigila adelante (Logica)
+    trabajador_vigilante = threading.Thread(target=vigilante_de_choques)
+    trabajador_vigilante.start() 
 
-btn_up = tk.Button(frame, text="↑", width=5, height=2)
-btn_up.grid(row=0, column=1)
-bind_btn(btn_up, "f")
+    try:
+        # Bucle de manejo
+        while robot_encendido == True:
+            tecla_tocada = leer_tecla_al_instante()
+            
+            # Adelante
+            if tecla_tocada == 'w':
+                mover_robot('w')
+                
+            # Atras
+            elif tecla_tocada == 's':
+                mover_robot('s')
+                
+            # Izquierda
+            elif tecla_tocada == 'a':
+                mover_robot('a')
+                
+            # Derecha
+            elif tecla_tocada == 'd':
+                mover_robot('d')
+                
+            # Nitro
+            elif tecla_tocada == 'n':
+                boton_nitro()
+                
+            # Freno manual
+            elif tecla_tocada == 'x':
+                frenar_robot()
+                
+            # Salir del juego
+            elif tecla_tocada == 'q':
+                robot_encendido = False
+                frenar_robot()
+                print("\n Hasta la vista baby")
+                break
+                
+    finally:
+        robot_encendido = False
+        trabajador_vigilante.join()
+        trabajador_serial.join()
+        s.close()
 
-btn_left = tk.Button(frame, text="←", width=5, height=2)
-btn_left.grid(row=1, column=0)
-bind_btn(btn_left, "l")
-
-btn_right = tk.Button(frame, text="→", width=5, height=2)
-btn_right.grid(row=1, column=2)
-bind_btn(btn_right, "r")
-
-btn_down = tk.Button(frame, text="↓", width=5, height=2)
-btn_down.grid(row=2, column=1)
-bind_btn(btn_down, "back")
-
-slider = tk.Scale(root, from_=0, to=100, orient="horizontal",
-                  command=lambda v: enviar(f"speed:{int(v)}"))
-slider.set(50)
-slider.pack()
-
-tk.Button(root, text="Buzzer", command=lambda: enviar("buzzer")).pack(pady=10)
-
-threading.Thread(target=leer_serial, daemon=True).start()
-
-root.mainloop()
-s.close()
+if __name__ == "__main__":
+    iniciar_modelo_b()
