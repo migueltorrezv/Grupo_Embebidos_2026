@@ -1,125 +1,55 @@
-"""
-LABORATORIO 8 - Ejercicio 1
-Video operations with OpenCV
-Uso: python ejercicio1_video.py <ruta_video>
-"""
-
 import cv2
-import numpy as np
-import sys
-
-def play_video(cap):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        cv2.imshow('Video Original', frame)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
-
-def resize_video(cap):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        resized = cv2.resize(frame, (400, 600))
-        cv2.imshow('Video Resized 400x600', resized)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
-
-def edge_detector_video(cap):
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        resized = cv2.resize(frame, (400, 600))
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 100, 200)
-        cv2.imshow('Edge Detector', edges)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
-
-def two_halves_video(cap):
-    """Divide frame en mitad izquierda y mitad derecha, mostradas lado a lado."""
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        resized = cv2.resize(frame, (400, 600))
-        h, w = resized.shape[:2]
-        mid = w // 2
-        left = resized[:, :mid]
-        right = resized[:, mid:]
-        combined = np.hstack((left, right))
-        cv2.imshow('Two Halves', combined)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
-
-def quadrants_video(cap):
-    """Divide frame en 4 cuadrantes y los muestra en una grilla 2x2."""
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        resized = cv2.resize(frame, (400, 600))
-        h, w = resized.shape[:2]
-        mh, mw = h // 2, w // 2
-
-        q1 = resized[:mh, :mw]    # Top-left
-        q2 = resized[:mh, mw:]    # Top-right
-        q3 = resized[mh:, :mw]    # Bottom-left
-        q4 = resized[mh:, mw:]    # Bottom-right
-
-        top = np.hstack((q1, q2))
-        bottom = np.hstack((q3, q4))
-        grid = np.vstack((top, bottom))
-
-        cv2.imshow('Four Quadrants', grid)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
-    cv2.destroyAllWindows()
 
 def main():
-    if len(sys.argv) < 2:
-        print("Uso: python ejercicio1_video.py <ruta_video>")
-        sys.exit(1)
-
-    video_path = sys.argv[1]
-    cap = cv2.VideoCapture(video_path)
+    # 🔹 Cargar video (pon tu ruta aquí)
+    cap = cv2.VideoCapture("video.mp4")
 
     if not cap.isOpened():
-        print(f"Error: No se puede abrir el video '{video_path}'")
-        sys.exit(1)
+        print("Error: no se pudo abrir el video")
+        return
 
-    print("Ejecutando operaciones sobre el video...")
-    print("Presiona 'q' para pasar a la siguiente operación\n")
+    while True:
+        ret, frame = cap.read()
 
-    print("1. Video original")
-    play_video(cap)
+        # 🔧 Si el video termina, vuelve al inicio
+        if not ret:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            continue
 
-    print("2. Video redimensionado a 400x600")
-    resize_video(cap)
+        # 🔹 1. Redimensionar a 400x600
+        resized = cv2.resize(frame, (400, 600))
 
-    print("3. Detección de bordes (Canny)")
-    edge_detector_video(cap)
+        # 🔹 2. Detector de bordes
+        edges = cv2.Canny(resized, 100, 200)
 
-    print("4. Video dividido en dos mitades")
-    two_halves_video(cap)
+        # 🔹 3. Mitades
+        h, w, _ = resized.shape
+        left_half = resized[:, :w//2]
+        right_half = resized[:, w//2:]
 
-    print("5. Video dividido en cuadrantes")
-    quadrants_video(cap)
+        # 🔹 4. Cuadrantes
+        top_left = resized[:h//2, :w//2]
+        top_right = resized[:h//2, w//2:]
+        bottom_left = resized[h//2:, :w//2]
+        bottom_right = resized[h//2:, w//2:]
+
+        # 🔹 Mostrar ventanas
+        cv2.imshow("Video Redimensionado", resized)
+        cv2.imshow("Bordes", edges)
+        cv2.imshow("Mitad Izquierda", left_half)
+        cv2.imshow("Mitad Derecha", right_half)
+        cv2.imshow("Cuadrante 1", top_left)
+        cv2.imshow("Cuadrante 2", top_right)
+        cv2.imshow("Cuadrante 3", bottom_left)
+        cv2.imshow("Cuadrante 4", bottom_right)
+
+        # 🔹 ESC para salir
+        if cv2.waitKey(25) & 0xFF == 27:
+            break
 
     cap.release()
-    print("Ejercicio 1 completado.")
+    cv2.destroyAllWindows()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

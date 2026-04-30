@@ -1,121 +1,65 @@
-"""
-LABORATORIO 8 - Ejercicio 2
-Cámara con 3 filtros seleccionables usando OOP.
-
-Controles:
-  1 -> Filtro Escala de Grises
-  2 -> Filtro Canny (bordes)
-  3 -> Filtro HSV
-  q -> Salir
-"""
-
 import cv2
-import numpy as np
 
-
-class Filter:
-    """Clase base para filtros de imagen."""
-    def apply(self, frame):
-        raise NotImplementedError
-
-    @property
-    def name(self):
-        raise NotImplementedError
-
-
-class GrayscaleFilter(Filter):
-    @property
-    def name(self):
-        return "Escala de Grises"
-
-    def apply(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)  # Convertir de vuelta para imshow uniforme
-
-
-class CannyFilter(Filter):
-    def __init__(self, threshold1=100, threshold2=200):
-        self.threshold1 = threshold1
-        self.threshold2 = threshold2
-
-    @property
-    def name(self):
-        return "Detección de Bordes (Canny)"
-
-    def apply(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, self.threshold1, self.threshold2)
-        return cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-
-
-class HSVFilter(Filter):
-    @property
-    def name(self):
-        return "Espacio de Color HSV"
-
-    def apply(self, frame):
-        return cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-
-class CameraApp:
-    """Aplicación principal de cámara con filtros seleccionables."""
-
+class CameraFilters:
     def __init__(self):
-        self.filters = {
-            ord('1'): GrayscaleFilter(),
-            ord('2'): CannyFilter(),
-            ord('3'): HSVFilter(),
-        }
-        self.active_filter = None
-        self.cap = None
+        # Iniciar cámara
+        self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+        self.current_filter = 0  # 0 = normal, 1,2,3 filtros
 
-    def _draw_overlay(self, frame):
-        """Dibuja HUD con filtro activo y controles."""
-        h, w = frame.shape[:2]
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (0, h - 80), (w, h), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+    def apply_filter(self, frame):
+        # Filtro 0: normal
+        if self.current_filter == 0:
+            return frame
 
-        filter_name = self.active_filter.name if self.active_filter else "Sin filtro"
-        cv2.putText(frame, f"Filtro: {filter_name}", (10, h - 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, "1:Gris | 2:Canny | 3:HSV | q:Salir", (10, h - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        return frame
+        # Filtro 1: escala de grises
+        elif self.current_filter == 1:
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Filtro 2: bordes
+        elif self.current_filter == 2:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            return cv2.Canny(gray, 100, 200)
+
+        # Filtro 3: blur
+        elif self.current_filter == 3:
+            return cv2.GaussianBlur(frame, (15, 15), 0)
 
     def run(self):
-        self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
-            print("Error: No se puede abrir la cámara.")
+            print("Error al abrir la cámara")
             return
-
-        print("Cámara iniciada. Presiona 1, 2 o 3 para seleccionar filtro. 'q' para salir.")
 
         while True:
             ret, frame = self.cap.read()
+
             if not ret:
-                break
+                print("Error al capturar frame")
+                continue
 
-            display = frame.copy()
+            # Aplicar filtro seleccionado
+            processed = self.apply_filter(frame)
 
-            if self.active_filter:
-                display = self.active_filter.apply(display)
+            # Mostrar resultado
+            cv2.imshow("Camara con Filtros", processed)
 
-            display = self._draw_overlay(display)
-            cv2.imshow('Camara con Filtros', display)
-
+            # Leer teclado
             key = cv2.waitKey(1) & 0xFF
 
-            if key == ord('q'):
+            if key == 27:  # ESC
                 break
-            elif key in self.filters:
-                self.active_filter = self.filters[key]
-                print(f"Filtro activo: {self.active_filter.name}")
+            elif key == ord('1'):
+                self.current_filter = 1
+            elif key == ord('2'):
+                self.current_filter = 2
+            elif key == ord('3'):
+                self.current_filter = 3
+            elif key == ord('0'):
+                self.current_filter = 0
 
         self.cap.release()
         cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
-    app = CameraApp()
+if __name__ == "__main__":
+    app = CameraFilters()
     app.run()
