@@ -52,3 +52,12 @@ class ModelA:
         self.running = False
         self.send("stop")
         self.s.close()
+Sí, el `main_program.py` debe arrancar solo en modo autónomo (Model A) sin esperar órdenes. El robot debe:
+
+1. Arrancar → modo autónomo automáticamente
+2. Botón GPIO26 → cambia a Model B (teclado)
+3. Botón GPIO26 de nuevo → vuelve a Model A
+
+El `main_program.py` ya hace eso — arranca con `model_index = 0` que es Model A.
+
+¿Está compilando y flasheando bien la TIVA ahora?
